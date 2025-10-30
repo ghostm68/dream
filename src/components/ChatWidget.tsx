@@ -12,6 +12,7 @@ export function ChatWidget() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedModel, setSelectedModel] = useState<AIModel>(availableModels[0]);
   const [isLoading, setIsLoading] = useState(false);
+  const [puterReady, setPuterReady] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -21,6 +22,17 @@ export function ChatWidget() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  useEffect(() => {
+    const checkPuter = () => {
+      if (typeof window.puter !== 'undefined') {
+        setPuterReady(true);
+      } else {
+        setTimeout(checkPuter, 100);
+      }
+    };
+    checkPuter();
+  }, []);
 
   useEffect(() => {
     if (isOpen && messages.length === 0) {
@@ -33,7 +45,7 @@ export function ChatWidget() {
       };
       setMessages([welcomeMessage]);
     }
-  }, [isOpen]);
+  }, [isOpen, messages.length]);
 
   const handleSendMessage = async (content: string) => {
     const userMessage: Message = {
@@ -47,8 +59,8 @@ export function ChatWidget() {
     setIsLoading(true);
 
     try {
-      if (typeof window.puter === 'undefined') {
-        throw new Error('Puter.js is not loaded');
+      if (typeof window.puter === 'undefined' || !puterReady) {
+        throw new Error('Puter.js is not loaded. Please wait a moment and try again.');
       }
 
       const response = await window.puter.ai.chat(content, {
@@ -70,7 +82,9 @@ export function ChatWidget() {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content:
-          'I apologize, but I encountered an error processing your message. Please try again.',
+          error instanceof Error && error.message.includes('Puter')
+            ? error.message
+            : 'I apologize, but I encountered an error processing your message. Please try again.',
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);
@@ -130,7 +144,12 @@ export function ChatWidget() {
           </div>
 
           <div className="px-4 py-4 border-t border-slate-200 bg-white">
-            <ChatInput onSendMessage={handleSendMessage} disabled={isLoading} />
+            {!puterReady && (
+              <div className="text-xs text-amber-600 mb-2 text-center">
+                Loading AI service...
+              </div>
+            )}
+            <ChatInput onSendMessage={handleSendMessage} disabled={isLoading || !puterReady} />
           </div>
         </div>
       )}
