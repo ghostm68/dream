@@ -27,17 +27,32 @@ The built files will be in the `dist/` folder.
 
 ## Deployment Options
 
-### Option 1: GitHub Pages
+### Option 1: GitHub Pages (Recommended)
+
+This project includes a GitHub Actions workflow that automatically builds and deploys on push.
+
+**Setup Steps:**
 
 1. Push this repo to GitHub
+
 2. Go to repository Settings → Pages
-3. Set Source to "Deploy from a branch"
-4. Select the `main` branch and `/dist` folder (or `/root` if you move files)
-5. Click Save
 
-Your chatbot will be live at `https://yourusername.github.io/repo-name/`
+3. Under "Build and deployment":
+   - Set Source to **"GitHub Actions"** (not "Deploy from a branch")
 
-**Important:** The build is already configured with `base: './'` in vite.config.ts for GitHub Pages compatibility.
+4. Push any commit to the `main` branch to trigger deployment
+
+5. Your chatbot will be live at `https://yourusername.github.io/repo-name/`
+
+**Important:** If your repo name is not the root domain, update `vite.config.ts`:
+```javascript
+base: '/your-repo-name/'  // Change this to match your repo name
+```
+
+The GitHub Actions workflow (`.github/workflows/deploy.yml`) automatically:
+- Installs dependencies
+- Runs the build
+- Deploys to GitHub Pages
 
 ### Option 2: Direct File Upload
 
