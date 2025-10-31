@@ -1,8 +1,10 @@
 import { ChatWidget } from './components/ChatWidget';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 function App() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <ErrorBoundary>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       <div className="container mx-auto px-4 py-12">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-12">
@@ -87,7 +89,8 @@ function App() {
       </div>
 
       <ChatWidget />
-    </div>
+      </div>
+    </ErrorBoundary>
   );
 }
 

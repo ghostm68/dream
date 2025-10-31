@@ -63,10 +63,24 @@ export function ChatWidget() {
         throw new Error('Puter.js is not loaded. Please wait a moment and try again.');
       }
 
-      const response = await window.puter.ai.chat(content, {
-        model: selectedModel.id,
-        system: DREAMWEAVER_CONTEXT,
-      });
+      console.log('Sending message with model:', selectedModel.id);
+
+      const response = await Promise.race([
+        window.puter.ai.chat(content, {
+          model: selectedModel.id,
+          system: DREAMWEAVER_CONTEXT,
+        }),
+        new Promise((_, reject) =>
+          setTimeout(
+            () => reject(new Error('Request timeout. Please try again.')),
+            60000
+          )
+        ),
+      ]) as string;
+
+      if (!response || typeof response !== 'string') {
+        throw new Error('Invalid response from AI model');
+      }
 
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -78,13 +92,25 @@ export function ChatWidget() {
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
       console.error('Error sending message:', error);
+      let errorContent = 'I apologize, but I encountered an error processing your message. Please try again.';
+
+      if (error instanceof Error) {
+        console.error('Error details:', error.message);
+        if (error.message.includes('Puter')) {
+          errorContent = error.message;
+        } else if (error.message.includes('model') || error.message.toLowerCase().includes('unknown model')) {
+          errorContent = `Model error: ${error.message}. Please select a different model.`;
+        } else if (error.message.includes('timeout') || error.message.includes('network')) {
+          errorContent = 'Network error. Please check your connection and try again.';
+        } else if (error.message) {
+          errorContent = `Error: ${error.message}`;
+        }
+      }
+
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content:
-          error instanceof Error && error.message.includes('Puter')
-            ? error.message
-            : 'I apologize, but I encountered an error processing your message. Please try again.',
+        content: errorContent,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);
