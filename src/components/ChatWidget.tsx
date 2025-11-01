@@ -104,7 +104,11 @@ export function ChatWidget() {
               model: selectedModel.id,
               system: DREAMWEAVER_CONTEXT,
             });
-            console.log('Response received:', result?.substring?.(0, 50) + '...');
+            console.log('Raw response:', result);
+            console.log('Response type:', typeof result);
+            if (result && typeof result === 'object') {
+              console.log('Response keys:', Object.keys(result));
+            }
             return result;
           } catch (chatError) {
             console.error('Chat API error:', chatError);
@@ -117,21 +121,36 @@ export function ChatWidget() {
             60000
           )
         ),
-      ]) as string;
+      ]);
 
-      if (!response) {
-        throw new Error('Model not found: Empty response from model');
+      let textContent: string;
+
+      if (typeof response === 'string') {
+        textContent = response;
+      } else if (typeof response === 'object' && response !== null) {
+        if (response.text && typeof response.text === 'string') {
+          textContent = response.text;
+        } else if (response.content && typeof response.content === 'string') {
+          textContent = response.content;
+        } else if (response.message && typeof response.message === 'string') {
+          textContent = response.message;
+        } else if (response.response && typeof response.response === 'string') {
+          textContent = response.response;
+        } else {
+          textContent = JSON.stringify(response);
+        }
+      } else {
+        throw new Error(`Invalid response type: expected string or object, got ${typeof response}`);
       }
 
-      if (typeof response !== 'string') {
-        console.error('Response type:', typeof response);
-        throw new Error(`Invalid response type: expected string, got ${typeof response}`);
+      if (!textContent || textContent.trim() === '') {
+        throw new Error('Model returned empty response');
       }
 
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: response,
+        content: textContent,
         timestamp: new Date(),
       };
 
