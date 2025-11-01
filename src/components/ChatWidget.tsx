@@ -24,14 +24,33 @@ export function ChatWidget() {
   }, [messages]);
 
   useEffect(() => {
+    console.log('ChatWidget mounted, checking Puter.js...');
+
     const checkPuter = () => {
       if (typeof window.puter !== 'undefined') {
-        setPuterReady(true);
+        console.log('Puter.js detected');
+        if (window.puter.ai && typeof window.puter.ai.chat === 'function') {
+          console.log('Puter AI chat method available');
+          setPuterReady(true);
+        } else {
+          console.warn('Puter detected but AI module not ready');
+          setTimeout(checkPuter, 500);
+        }
       } else {
-        setTimeout(checkPuter, 100);
+        console.log('Puter.js not found yet, retrying...');
+        setTimeout(checkPuter, 500);
       }
     };
+
+    const timeout = setTimeout(() => {
+      if (!puterReady) {
+        console.error('Puter.js initialization timeout - check if script loaded in HTML');
+      }
+    }, 15000);
+
     checkPuter();
+
+    return () => clearTimeout(timeout);
   }, []);
 
   useEffect(() => {
@@ -59,27 +78,54 @@ export function ChatWidget() {
     setIsLoading(true);
 
     try {
-      if (typeof window.puter === 'undefined' || !puterReady) {
-        throw new Error('Puter.js is not loaded. Please wait a moment and try again.');
+      if (typeof window.puter === 'undefined') {
+        throw new Error('Script didn\'t load: Puter.js not found. Refresh the page.');
+      }
+
+      if (!window.puter.ai) {
+        throw new Error('Cannot read property \'chat\' of undefined: Puter loaded but AI module missing');
+      }
+
+      if (typeof window.puter.ai.chat !== 'function') {
+        throw new Error('Puter.ai.chat is not a function');
+      }
+
+      if (!puterReady) {
+        throw new Error('Puter.js still initializing. Please wait a moment and try again.');
       }
 
       console.log('Sending message with model:', selectedModel.id);
+      console.log('Model ID format:', selectedModel.id);
 
       const response = await Promise.race([
-        window.puter.ai.chat(content, {
-          model: selectedModel.id,
-          system: DREAMWEAVER_CONTEXT,
-        }),
+        (async () => {
+          try {
+            const result = await window.puter.ai.chat(content, {
+              model: selectedModel.id,
+              system: DREAMWEAVER_CONTEXT,
+            });
+            console.log('Response received:', result?.substring?.(0, 50) + '...');
+            return result;
+          } catch (chatError) {
+            console.error('Chat API error:', chatError);
+            throw chatError;
+          }
+        })(),
         new Promise((_, reject) =>
           setTimeout(
-            () => reject(new Error('Request timeout. Please try again.')),
+            () => reject(new Error('Request timeout after 60 seconds')),
             60000
           )
         ),
       ]) as string;
 
-      if (!response || typeof response !== 'string') {
-        throw new Error('Invalid response from AI model');
+      if (!response) {
+        throw new Error('Model not found: Empty response from model');
+      }
+
+      if (typeof response !== 'string') {
+        console.error('Response type:', typeof response);
+        throw new Error(`Invalid response type: expected string, got ${typeof response}`);
       }
 
       const assistantMessage: Message = {
@@ -95,16 +141,8 @@ export function ChatWidget() {
       let errorContent = 'I apologize, but I encountered an error processing your message. Please try again.';
 
       if (error instanceof Error) {
-        console.error('Error details:', error.message);
-        if (error.message.includes('Puter')) {
-          errorContent = error.message;
-        } else if (error.message.includes('model') || error.message.toLowerCase().includes('unknown model')) {
-          errorContent = `Model error: ${error.message}. Please select a different model.`;
-        } else if (error.message.includes('timeout') || error.message.includes('network')) {
-          errorContent = 'Network error. Please check your connection and try again.';
-        } else if (error.message) {
-          errorContent = `Error: ${error.message}`;
-        }
+        console.error('Error message:', error.message);
+        errorContent = error.message;
       }
 
       const errorMessage: Message = {
